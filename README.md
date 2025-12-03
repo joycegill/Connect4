@@ -1,6 +1,6 @@
-# Connect 4
+# Networked Connect 4
 
-This is the final project for CSC 213: Operating Systems and Parallel Algorithms by Joyce Gill and Engtieng Ourn. The project implements a Connect 4 game using the `ncurses` library in C with round-robin thread scheduling.
+This is the final project for CSC 213: Operating Systems and Parallel Algorithms by Joyce Gill and Engtieng Ourn. The project implements a Connect 4 game using the `ncurses` library in C with round-robin thread scheduling and networks.
 
 ## Operating Systems Concepts
 
@@ -8,6 +8,7 @@ The following OS concepts are demonstrated in this project:
 1. **Scheduling** - Round Robin Fashion
 2. **Parallelism with Threads** - Two player threads run concurrently
 3. **Thread Synchronization** - Mutexes and condition variables coordinate access
+4. **Networks** - TODO!
 
 ## Architecture
 
