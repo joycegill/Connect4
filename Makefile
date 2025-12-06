@@ -2,11 +2,12 @@ CC = gcc
 CFLAGS = -Wall -Wextra -std=c99
 LIBS = -lncurses -pthread
 TARGET = connect4
-SRC = main.c
+SRC = main.c 
+HEADERS = socket.h
 
 all: $(TARGET)
 
-$(TARGET): $(SRC)
+$(TARGET): $(SRC) $(HEADERS)
 	$(CC) $(CFLAGS) -o $(TARGET) $(SRC) $(LIBS)
 
 clean:

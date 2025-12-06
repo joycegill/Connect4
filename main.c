@@ -2,6 +2,13 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include "socket.h"
 
 #define SLOT_HEIGHT 2
 #define SLOT_WIDTH  4
@@ -80,6 +87,14 @@ static void draw_grid(int left, int top) {
     mvaddch(bottom, right, ACS_LRCORNER);
     attroff(COLOR_PAIR(BOARD_COLOR));
 }
+
+// // The callback function to run on new input
+// static input_callback_t input_callback;
+
+// // TODO: create a function to initialized the user interface and set up a callback function
+// void ui_init(input_callback_t input_callback) {
+
+// }
 
 /**  Find which row the token should drop to
  * @param col The column index where the token is being dropped
@@ -241,8 +256,92 @@ void update_display(void) {
     mvprintw(ROWS * SLOT_HEIGHT + 6, 2, "Controls: Arrow keys = Move cursor, Space = Place token, q = Quit");
     refresh();
 }
+ 
+// Background thread to wait for opponent's move
+void* recieved_thread(void* arg) {
+    int fd = *(int*)arg;
+    while (!game.game_over) {
+        unsigned char col;
+        if (read(fd, &col, 1) <= 0) break; // disconnected
 
-int main(void) {
+        pthread_mutex_lock(&game.mutex);
+
+        int row = find_row(col, game.cells);
+        if (row != -1) {
+            game.cells[row * COLS + col] = (game.current_player == PLAYER_NONE ? PLAYER_TWO : PLAYER_ONE);
+
+            // check win
+            if (check_win(game.cells, row, col, game.cells[row+COLS])) {
+                game.winner = game.cells[row * COLS + col];
+                game.game_over;
+            }
+
+            // switch turn
+            game.current_player = (game.current_player == PLAYER_NONE ? PLAYER_TWO : PLAYER_ONE);
+        }
+        pthread_mutex_unlock(&game.mutex);
+        update_display();
+    }
+    return NULL;
+}
+
+int main(int argc, char **argv) {
+    // Make sure the arguments include a username
+    // if (argc != 2 && argc != 4) {
+    //     fprintf(stderr, "Usage: %s <username> [<peer> <port number>]\n", argv[0]);
+    //     exit(1); 
+    // }
+
+    if (argc == 2) {
+        game.current_player = PLAYER_ONE;
+
+        // Set up a server socket
+        unsigned short port = 0;
+        intptr_t host_id = server_socket_open(&port);
+        if (host_id == -1) {
+            perror("Server socket was not opened");
+            exit(EXIT_FAILURE);
+        }
+
+        // start listening on our server
+        // cite: https://man7.org/linux/man-pages/man2/listen.2.html
+        if (listen(host_id, SOMAXCONN) == -1) {
+            perror("listen");
+            exit(EXIT_FAILURE);
+        }
+
+        // create thread to wait for connections
+        pthread_t thread_id;
+        pthread_create(&thread_id, NULL, recieved_thread, (void *)host_id);
+
+    } else if (argc == 4) {
+        game.current_player = PLAYER_TWO;
+        // Unpack arguments
+        char *peer_hostname = argv[2];
+        unsigned short guest_port = atoi(argv[3]);
+
+        // TODO: Connect to another peer in the chat network
+        intptr_t peer_fd;
+        if ((peer_fd = socket_connect(peer_hostname, guest_port)) == -1) {
+            perror("Connection fail");
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        fprintf(stderr, "Usage: %s <username> [<peer> <port number>]\n", argv[0]);
+        exit(1); 
+    }
+
+    // Save the username 
+    char *username = argv[1];
+
+    // Set up a server socket to accept incoming connections
+    unsigned short port = 0;
+    intptr_t server_socket_fd = server_socket_open(&port);
+    if (server_socket_fd == -1) {
+        perror("Server socket was not opened");
+        exit(EXIT_FAILURE);
+    }
+
     // Initialize ncurses
     if (initscr() == NULL)
         return EXIT_FAILURE;
@@ -312,16 +411,31 @@ int main(void) {
             // Check if column has space before accepting the move
             int landing_row = find_row(selected_column, game.cells);
             
-            // Only accept move if column has space, it's a valid player's turn, and no move is pending
-            if (landing_row != -1 && game.current_player != 0 && !game.move_made) {
-                game.selected_col = selected_column;
-                game.move_made = 1;
-                // Wake up the player thread waiting for a move
-                pthread_cond_broadcast(&game.turn_cond);
+            // // Only accept move if column has space, it's a valid player's turn, and no move is pending
+            // if (landing_row != -1 && game.current_player != 0 && !game.move_made) {
+            //     game.selected_col = selected_column;
+            //     game.move_made = 1;
+            //     // Wake up the player thread waiting for a move
+            //     pthread_cond_broadcast(&game.turn_cond);
                 
-                // Wait for move to be processed (move_made will be reset by thread)
-                while (game.move_made && !game.game_over) {
-                    pthread_cond_wait(&game.turn_cond, &game.mutex);
+            //     // Wait for move to be processed (move_made will be reset by thread)
+            //     while (game.move_made && !game.game_over) {
+            //         pthread_cond_wait(&game.turn_cond, &game.mutex);
+            //     }
+            // }
+            if (landing_row != -1) {
+                // apply move
+                game.cells[landing_row * COLS + selected_column] = host_id;
+
+                // send to peer
+                write(socket_fd, &selected_column, 1);
+
+                // check win
+                if (check_win(game.cells, landing_row, selected_column, game.cells[landing_row+COLS])) {
+                    game.game_over = 1;
+                } else {
+                    // switch turn
+                    game.current_player = opponent_id;
                 }
             }
         }
@@ -329,6 +443,8 @@ int main(void) {
         pthread_mutex_unlock(&game.mutex);
         update_display();
     }
+
+    // ui_init(input_callback);
 
     // Signal threads to exit
     pthread_mutex_lock(&game.mutex);
