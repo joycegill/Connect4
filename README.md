@@ -1,33 +1,25 @@
-# Connect 4
+# Networked-Connect 4
 
-This is the final project for CSC 213: Operating Systems and Parallel Algorithms by Joyce Gill and Engtieng Ourn. The project implements a Connect 4 game using the `ncurses` library in C with round-robin thread scheduling.
+This is the final project for CSC 213: Operating Systems and Parallel Algorithms by Joyce Gill and Engtieng Ourn. The project implements a Connect 4 game using the `ncurses` library in C.
 
 ## Operating Systems Concepts
 
 The following OS concepts are demonstrated in this project:
 1. **Scheduling** - Round Robin Fashion
 2. **Parallelism with Threads** - Two player threads run concurrently
-3. **Thread Synchronization** - Mutexes and condition variables coordinate access
+3. **Thread Synchronization** - Mutexes coordinate access to shared game state
+4. **Networking** - TCP socket-based client-server architecture for remote gameplay. 
 
 ## Architecture
 
-### Threading Model
+### Code Organization
 
-The game uses a multi-threaded architecture with round-robin scheduling:
-- **Main Thread**: Handles user input (arrow keys, spacebar) and display updates
-- **Player 1 Thread**: Processes moves for Player 1
-- **Player 2 Thread**: Processes moves for Player 2
+The project is organized into modular components:
 
-Threads use mutexes and condition variables to ensure:
-- Only one thread accesses shared state at a time
-- Threads wait for their turn (round-robin scheduling)
-- Proper synchronization between input and move processing
-
-### Synchronization Primitives
-
-- **`pthread_mutex_t`**: Protects shared game state from race conditions
-- **`pthread_cond_t`**: Coordinates turn-taking between player threads
-- **Condition Variables**: Threads wait until it's their turn and a move is available
+- **`main.c`**: Main entry point, networking setup, input handling, and thread management
+- **`game.h` / `game.c`**: Game logic including board state, win detection, and move validation
+- **`ui.h` / `ui.c`**: User interface and display functions using ncurses
+- **`socket.h`**: Network socket utilities for client-server communication
 
 ## Game Rules
 
@@ -50,9 +42,17 @@ To compile and run the project, use the provided `Makefile`.
 make
 ```
 
+To run as a server (Player 1):
 ```bash
-./connect4
+./connect4 <username>
 ```
+
+To run as a client (Player 2):
+```bash
+./connect4 <username> <server-host> <server-port>
+```
+
+The server will print the port number it's listening on, which the client needs to connect.
 
 ## Dependencies
 
@@ -65,9 +65,3 @@ The Makefile compiles with:
 - `-Wall -Wextra`: Enable all warnings
 - `-std=c99`: C99 standard
 - `-lncurses -pthread`: Link ncurses and pthread libraries
-
-## Project Structure
-
-- `main.c` - Main game implementation with threading and synchronization
-- `Makefile` - Build configuration
-- `README.md` - This file

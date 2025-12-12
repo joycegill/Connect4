@@ -2,8 +2,8 @@ CC = gcc
 CFLAGS = -Wall -Wextra -std=c99
 LIBS = -lncurses -pthread
 TARGET = connect4
-SRC = main.c 
-HEADERS = socket.h
+SRC = main.c game.c ui.c
+HEADERS = socket.h game.h ui.h
 
 all: $(TARGET)
 
