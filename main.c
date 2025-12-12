@@ -43,6 +43,39 @@ static struct game_state game;
 
 static unsigned char my_player = PLAYER_NONE; // set in main
 
+// Helper function to write all the required bytes
+ssize_t write_helper(int fd, const void* buf, size_t len) {
+  size_t bytes_written = 0;
+  const char* ptr = buf;
+
+  // write every element in the buffer
+  while (bytes_written < len) {
+    ssize_t rc = write(fd, ptr + bytes_written, len - bytes_written);
+    if (rc < 0) return rc;
+    bytes_written += (size_t) rc;
+  }
+  return (ssize_t) bytes_written;
+}
+
+// Helper function to all the required bytes
+size_t read_helper(int fd, void* buf, size_t len) {
+  // Bytes read so far
+  size_t bytes_read = 0; 
+  
+  // Keep reading until the end
+  while (bytes_read < len) {
+    // Try to read the entire remaining message
+    ssize_t rc2 = read(fd, buf + bytes_read, len - bytes_read);
+    // Catch error
+    if (rc2 < 0) return rc2;
+    // Update bytes read so far
+    bytes_read += rc2;
+  }
+  
+  // All bytes are read
+  return bytes_read;
+}
+
 // Function to draw a single token on the board
 static void draw_token(int left, int top, int col, int row, unsigned char player) {
     // Calculate the x-coordinate and y-coordinate
@@ -156,7 +189,7 @@ static int send_move(int col) {
     unsigned char buf[2];
     buf[0] = my_player;
     buf[1] = (unsigned char)col;
-    ssize_t w = write_all(socket_fd, buf, 2);
+    ssize_t w = write_helper(socket_fd, buf, 2);
     if (w != 2) return -1;
     return 0;
 }
@@ -248,7 +281,7 @@ void* recv_thread(void *arg) {
     // loop to reading the opponent's chosen column
     while (1) {
         // read the column number
-        ssize_t r = read_all(socket_fd, buf, 2);
+        ssize_t r = read_helper(socket_fd, buf, 2);
         if (r == 0) break; // peer closed
         if (r < 0) break;  // error
         unsigned char sender = buf[0];
